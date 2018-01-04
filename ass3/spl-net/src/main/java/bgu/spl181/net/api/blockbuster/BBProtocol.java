@@ -41,22 +41,40 @@ public class BBProtocol extends USTProtocol {
             connections.send(connectionId, "ERROR request " + requestName + " failed");
             return;
         }
-        if(requestName == "balance"){
+        if(requestName.equals("balance")){
             requestBalance(requestDet);
             return;
         }
-        if(requestName == "info") {
+        if(requestName.equals("info")) {
             requestInfo(requestDet);
             return;
         }
-        if(requestName == "rent") {
+        if(requestName.equals("rent")) {
             requestRent(requestDet);
             return;
         }
-        if(requestName == "return") {
+        if(requestName.equals("return")) {
             requestReturn(requestDet);
             return;
         }
+
+        //---------------------admin------------------------------
+
+        if(requestName.equals("addmovie")) {
+            requestAddMovie(requestDet);
+            return;
+        }
+
+        if(requestName.equals("remmovie")) {
+            requestRemoveMovie(requestDet);
+            return;
+        }
+
+        if(requestName.equals("changeprice")) {
+            requestChangePrice(requestDet);
+            return;
+        }
+
     }
 
     private void requestBalance(String detail){
@@ -72,32 +90,87 @@ public class BBProtocol extends USTProtocol {
         }
     }
 
-    private void requestInfo(String detail){
-        if(detail.length() == 0)
+    private void requestInfo(String detail) {
+        if (detail.length() == 0)
             connections.send(connectionId, "ACK info" + MovieDataBase.toString()); // all database to 1 string
-        else
-            connections.send(connectionId, "ACK info" + MovieDataBase.getMovieInfo(detail));
+        else {
+            String info = MovieDataBase.getMovieInfo(detail);
+            if (info == null)
+                connections.send(connectionId, "ERROR request info failed");
+            else
+                connections.send(connectionId, "ACK info");
+
+        }
     }
 
     private void requestRent(String detail) {
         Movie movie = MovieDataBase.getMovie(detail);
         if((movie == null)||(movie.getPrice() > user.getBalance()) ||(movie.checkBannedIn(user.getCountry()))
                 ||(user.checkIfMovieRented(movie.getName()))) { //check copies should be sync but only on the movie
-            connections.send(connectionId, "ERROR request rent");
+            connections.send(connectionId, "ERROR request rent failed");
             return;
         }
         synchronized (movie){ //the user is sync via the pool and the fact that can be only 1 logged in. but the movie not
             if(movie.getCopies()==0){
-                connections.send(connectionId, "ERROR request rent");
+                connections.send(connectionId, "ERROR request rent failed");
                 return;
             }
             movie.setCopies(movie.getCopies()-1);
             user.addMovie(movie.getName());
             connections.send(connectionId,"ACK rent " + movie.getName() + " success");
-            connections.broadcast("BROADCAST movie " +  movie.getName() + " " + movie.getCopies()
-                    + " " + movie.getPrice()); //brodcast could be outside of sync to make it more efficient, but we need make more vals
+            connections.broadcast("BROADCAST movie " +  movie.toString()); //brodcast could be outside of sync to make it more efficient, but we need make more vals
         }
         }
 
+    private void requestReturn(String detail){
+        Movie movie = MovieDataBase.getMovie(detail);
+        if(!user.checkIfRenting(detail)||(movie == null)) {
+            connections.send(connectionId, "ERROR request return failed");
+            return;
+        }
+        synchronized(movie){
+            movie.setCopies(movie.getCopies()+1);
+            user.removeMovie(movie.getName());
+            connections.send(connectionId,"ACK return " + movie.getName() + " success");
+            connections.broadcast("BROADCAST movie " +  movie.toString()); //brodcast could be outside of sync to make it more efficient, but we need make more vals
+        }
+    }
 
+    // ---------------------------- admin ------------------------------------
+
+    private void requestAddMovie(String detail){
+        String[] details = detail.split("\\s+");
+         if (!(user.isAdmin()) || !(movieDataBase.addMovieToDataBase(details[0], details[1], details[2], details[3])))
+             connections.send(connectionId, "ERROR request addmovie failed");
+            // need check if the price is bigger than 0 and to check if the name availble (SYNC)
+         else {
+             Movie movie = MovieDataBase.getMovie(details[0]);
+             connections.send(connectionId, "ACK addmovie " + movie.getName() + " success");
+             connections.broadcast("BROADCAST movie " + movie.toString());
+            }
+    }
+
+    private void requestRemoveMovie(String detail) {
+        if (!(user.isAdmin()) || !(movieDataBase.removeMovieFromDataBase(detail, users)))
+            connections.send(connectionId, "ERROR request remmovie failed");
+            // checks 2 and 3 (pdf) need to be sync on the movie
+        else {
+            connections.send(connectionId, "ACK remmovie " + detail + " success");
+            connections.broadcast("BROADCAST movie " + detail + " removed");
+        }
+    }
+
+    private void requestChangePrice(String detail) {
+        String[] details = detail.split("\\s+");
+        if (!(user.isAdmin()) || !(movieDataBase.changeMoviePrice(details[0], details[1])))
+            connections.send(connectionId, "ERROR request changeprice failed");
+            // checks 2 and 3 (pdf) need to be sync on the movie
+        else {
+            Movie movie = MovieDataBase.getMovie(details[0]);
+            connections.send(connectionId, "ACK changeprice " + movie.getName() + " success");
+            connections.broadcast("BROADCAST movie " + movie.toString());
+        }
+
+    }
+    
 }

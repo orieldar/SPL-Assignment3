@@ -26,13 +26,13 @@ public abstract class USTProtocol implements BidiMessagingProtocol<String>{
     public void process(String message) {
         String commandName = message.substring(0, message.indexOf(" "));
         String commandDet = message.substring(message.indexOf(" ") + 1);
-        if (commandName == "REGISTER")
+        if (commandName.equals("REGISTER"))
             register(commandDet);
-        else if (commandName == "LOGIN")
+        else if (commandName.equals("LOGIN"))
             login(commandDet);
-            else if (commandName == "SIGNOUT")
+            else if (commandName.equals("SIGNOUT"))
                 signOut();
-                else if (commandName == "REQUEST")
+                else if (commandName.equals("REQUEST"))
                     request(commandDet);
     }
 
