@@ -1,16 +1,18 @@
 package bgu.spl181.net.api.bidi;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
 
 public class ConnectionsImpl<T> implements Connections<T> {
 
-    Map<Integer,ConnectionHandler> connections;
+    Map<Integer,ConnectionHandler<T>> connections;
 
     public ConnectionsImpl(){
-        connections = new HashMap<Integer,ConnectionHandler>(); //need to be concurrent!?
+        connections = new HashMap<Integer,ConnectionHandler<T>>(); //need to be concurrent!?
     }
+
     @Override
     public boolean send(int connectionId, T msg) {
         ConnectionHandler connectionHandler = connections.get(connectionId);
@@ -32,6 +34,11 @@ public class ConnectionsImpl<T> implements Connections<T> {
 
     @Override
     public void disconnect(int connectionId) {
+        try {
+            connections.get(connectionId).close();
+        } catch (IOException e) {
+            e.printStackTrace(); // ?????
+        }
         connections.remove(connectionId);
 
     }

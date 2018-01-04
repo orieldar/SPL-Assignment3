@@ -22,6 +22,7 @@ public interface Server<T> extends Closeable {
      * @param <T> The Message Object for the protocol
      * @return A new Thread per client server
      */
+
     public static <T> Server<T>  threadPerClient(
             int port,
             Supplier<BidiMessagingProtocol<T>> protocolFactory,
@@ -29,8 +30,8 @@ public interface Server<T> extends Closeable {
 
         return new BidiBaseServer<T>(port, protocolFactory, encoderDecoderFactory) {
 
-            ConnectionsImpl<T> connections = new ConnectionsImpl<T>();
-            int activeClients;
+            private ConnectionsImpl<T> connections = new ConnectionsImpl<T>();
+            private int activeClients;
 
             @Override
             protected void execute(BidiBlockingConnectionHandler<T> handler) {
@@ -52,6 +53,7 @@ public interface Server<T> extends Closeable {
      * @param <T> The Message Object for the protocol
      * @return A new reactor server
      */
+
     public static <T> Server<T> reactor(
             int nthreads,
             int port,

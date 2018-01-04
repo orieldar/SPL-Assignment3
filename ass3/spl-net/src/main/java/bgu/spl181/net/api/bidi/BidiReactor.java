@@ -12,6 +12,7 @@ import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
 public class BidiReactor<T> implements Server<T> {
@@ -21,9 +22,11 @@ public class BidiReactor<T> implements Server<T> {
     private final Supplier<MessageEncoderDecoder<T>> readerFactory;
     private final ActorThreadPool pool;
     private Selector selector;
-
+    private ConnectionsImpl<T> connections = new ConnectionsImpl<T>();
+    private int activeClients;
     private Thread selectorThread;
     private final ConcurrentLinkedQueue<Runnable> selectorTasks = new ConcurrentLinkedQueue<>();
+    private AtomicInteger numOfloggers = new AtomicInteger(0);
 
     public BidiReactor(
             int numThreads,
@@ -95,18 +98,22 @@ public class BidiReactor<T> implements Server<T> {
 
 
     private void handleAccept(ServerSocketChannel serverChan, Selector selector) throws IOException {
+        int connectionId = numOfloggers.getAndIncrement();
         SocketChannel clientChan = serverChan.accept();
         clientChan.configureBlocking(false);
+        BidiMessagingProtocol<T> newProtocol = protocolFactory.get();
+        newProtocol.start(connectionId, connections);
         final BidiNonBlockingConnectionHandler handler = new BidiNonBlockingConnectionHandler(
                 readerFactory.get(),
-                protocolFactory.get(),
+                newProtocol,
                 clientChan,
                 this);
         clientChan.register(selector, SelectionKey.OP_READ, handler);
+        connections.addConnection(connectionId, handler);
     }
 
     private void handleReadWrite(SelectionKey key) {
-        NonBlockingConnectionHandler handler = (NonBlockingConnectionHandler) key.attachment();
+        BidiNonBlockingConnectionHandler handler = (BidiNonBlockingConnectionHandler) key.attachment();
 
         if (key.isReadable()) {
             Runnable task = handler.continueRead();

@@ -4,21 +4,17 @@ import bgu.spl181.net.api.bidi.BidiMessagingProtocol;
 import bgu.spl181.net.api.bidi.Connections;
 import bgu.spl181.net.api.bidi.ServerUsers;
 
-public class USTProtocol implements BidiMessagingProtocol<String> {
+import java.util.concurrent.atomic.AtomicBoolean;
 
-    private ServerUsers users;
-    private Connections<String> connections;
-    private int connectionId;
+public abstract class USTProtocol implements BidiMessagingProtocol<String>{
 
+    protected ServerUsers users;
+    protected User user;
+    protected Connections<String> connections;
+    protected int connectionId;
 
+    public USTProtocol(ServerUsers args){this.users = args;}
 
-    public USTProtocol(ServerUsers args){
-        if(args != null)
-            this.users = args;
-        else
-            this.users = new ServerUsers();
-        }
-    }
     @Override
     public void start(int connectionId, Connections<String> connections) {
         this.connectionId = connectionId;
@@ -31,27 +27,48 @@ public class USTProtocol implements BidiMessagingProtocol<String> {
         String commandName = message.substring(0, message.indexOf(" "));
         String commandDet = message.substring(message.indexOf(" ") + 1);
         if (commandName == "REGISTER")
-            register(commandDet, users);
-
-
-
-
-
-         /*
-            String userName = commandDet.substring(0, commandDet.indexOf(" "));
-            String userPass = commandDet.substring(commandDet.indexOf(" ") + 1);
-
-            users.addUser(userName, userPass);
-            connections.send(connectionId, message);
-        }
-    }
-
-    public void acknowledge(String message){
-        connections.send(connectionId, "ACK " + message);
+            register(commandDet);
+        else if (commandName == "LOGIN")
+            login(commandDet);
+            else if (commandName == "SIGNOUT")
+                signOut();
+                else if (commandName == "REQUEST")
+                    request(commandDet);
     }
 
     @Override
     public boolean shouldTerminate() {
         return false;
     }
-    */
+
+
+    private void login(String detail){
+        String[] details = detail.split("\\s+");
+        if((details.length != 2)||(user != null)) {
+            connections.send(connectionId, "ERROR login failed");
+            return;
+        }
+        user = users.logIn(details[0], details[1]); // need to check with sync if the user is already logged in!
+        if(user == null) {
+            connections.send(connectionId, "ERROR login failed");
+            return;
+        }
+        connections.send(connectionId, "ACK login succeeded");
+    }
+
+    private void signOut(){
+        if(user == null){
+            connections.send(connectionId, "ERROR signout failed");
+            return;
+        }
+        user.logOut();
+        connections.send(connectionId, "ACK login succeeded"); //need to check if there is a problem with the pool (try to disconnect while a pending actions.. maybe we throw it in the pool
+        connections.disconnect(connectionId);
+    }
+
+    protected abstract void register(String detail);
+
+    protected abstract void request(String detail);
+
+
+}
