@@ -18,7 +18,8 @@ public class BBProtocol extends USTProtocol {
             connections.send(connectionId, "ERROR login failed");
             return;
         }
-        if(users.register(detail[0], detail[1], detail[2])) // need to check if the name is taken SYNC
+        details[2] = details[2].substring(details[2].indexOf('=') + 1);
+        if(users.register(details[0], details[1], details[2])) // need to check if the name is taken SYNC
             connections.send(connectionId,"ACK registration succeeded");
         else
             connections.send(connectionId, "ERROR login failed");
@@ -84,7 +85,7 @@ public class BBProtocol extends USTProtocol {
             return;
         }
         if(details[0] == "add") {
-            user.setBalance(details[1]);
+            users.addToBalance(user, details[1]);
             connections.send(connectionId, "ACK balance " + user.getBalance() + " added " + details[1]);
             return;
         }
@@ -92,55 +93,48 @@ public class BBProtocol extends USTProtocol {
 
     private void requestInfo(String detail) {
         if (detail.length() == 0)
-            connections.send(connectionId, "ACK info" + MovieDataBase.toString()); // all database to 1 string
+            connections.send(connectionId, "ACK info" + MovieDataBase.getAllNames()); // all database to 1 string
         else {
-            String info = MovieDataBase.getMovieInfo(detail);
+            String info = movieDataBase.getMovieInfo(detail);
             if (info == null)
                 connections.send(connectionId, "ERROR request info failed");
             else
-                connections.send(connectionId, "ACK info");
+                connections.send(connectionId, "ACK info " + info);
 
         }
     }
 
     private void requestRent(String detail) {
         Movie movie = MovieDataBase.getMovie(detail);
-        if((movie == null)||(movie.getPrice() > user.getBalance()) ||(movie.checkBannedIn(user.getCountry()))
-                ||(user.checkIfMovieRented(movie.getName()))) { //check copies should be sync but only on the movie
+        if((movie == null)||(movie.checkBannedIn(user.getCountry()))||(user.checkIfMovieRented(movie.getName()))
+                ||(!movieDataBase.rentMovie(movie, user.getBalance()))){ //check copies should be sync but only on the movie
             connections.send(connectionId, "ERROR request rent failed");
             return;
         }
-        synchronized (movie){ //the user is sync via the pool and the fact that can be only 1 logged in. but the movie not
-            if(movie.getCopies()==0){
-                connections.send(connectionId, "ERROR request rent failed");
-                return;
-            }
-            movie.setCopies(movie.getCopies()-1);
-            user.addMovie(movie.getName());
-            connections.send(connectionId,"ACK rent " + movie.getName() + " success");
-            connections.broadcast("BROADCAST movie " +  movie.toString()); //brodcast could be outside of sync to make it more efficient, but we need make more vals
-        }
-        }
+        users.addMovie(user, movie);
+        connections.send(connectionId,"ACK rent " + movie.getName() + " success");
+        connections.broadcast("BROADCAST movie " +  movie.toString());
+    }
 
     private void requestReturn(String detail){
         Movie movie = MovieDataBase.getMovie(detail);
-        if(!user.checkIfRenting(detail)||(movie == null)) {
+        if((movie == null)||! (user.checkIfMovieRented(movie))||(!movieDataBase.returnMovie(movie))){
             connections.send(connectionId, "ERROR request return failed");
             return;
         }
-        synchronized(movie){
-            movie.setCopies(movie.getCopies()+1);
-            user.removeMovie(movie.getName());
-            connections.send(connectionId,"ACK return " + movie.getName() + " success");
-            connections.broadcast("BROADCAST movie " +  movie.toString()); //brodcast could be outside of sync to make it more efficient, but we need make more vals
+        users.returnMovie(user, movie);
+        connections.send(connectionId,"ACK return " + movie.getName() + " success");
+        connections.broadcast("BROADCAST movie " +  movie.toString());
         }
-    }
 
     // ---------------------------- admin ------------------------------------
 
     private void requestAddMovie(String detail){
-        String[] details = detail.split("\\s+");
-         if (!(user.isAdmin()) || !(movieDataBase.addMovieToDataBase(details[0], details[1], details[2], details[3])))
+        String movieName = detail.substring(0, detail.indexOf('"', 1) + 1);
+        detail = detail.substring(detail.indexOf('"', 1) + 2);
+        String[] bannedCountries = (detail.substring(detail.indexOf('"'))).split("\\s+");
+        String[] details = (detail.substring(0, detail.indexOf('"') - 1)).split("\\s+");
+         if (!(user.isAdmin()) || !(movieDataBase.addMovieToDataBase(movieName, details[0], details[1], bannedCountries)))
              connections.send(connectionId, "ERROR request addmovie failed");
             // need check if the price is bigger than 0 and to check if the name availble (SYNC)
          else {
@@ -161,8 +155,9 @@ public class BBProtocol extends USTProtocol {
     }
 
     private void requestChangePrice(String detail) {
-        String[] details = detail.split("\\s+");
-        if (!(user.isAdmin()) || !(movieDataBase.changeMoviePrice(details[0], details[1])))
+        String movieName = detail.substring(0, detail.indexOf('"') + 1);
+        String newPrice = detail.substring(detail.indexOf('"', 1) + 2);
+        if (!(user.isAdmin()) || !(movieDataBase.changeMoviePrice(movieName, newPrice)))
             connections.send(connectionId, "ERROR request changeprice failed");
             // checks 2 and 3 (pdf) need to be sync on the movie
         else {
@@ -172,5 +167,5 @@ public class BBProtocol extends USTProtocol {
         }
 
     }
-    
+
 }

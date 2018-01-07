@@ -62,6 +62,7 @@ public abstract class USTProtocol implements BidiMessagingProtocol<String>{
             return;
         }
         user.logOut();
+        user = null;
         connections.send(connectionId, "ACK login succeeded"); //need to check if there is a problem with the pool (try to disconnect while a pending actions.. maybe we throw it in the pool
         connections.disconnect(connectionId);
     }
