@@ -1,0 +1,9 @@
+/home/tomer/Desktop/clion-2017.2.3/bin/cmake/bin/cmake -DCMAKE_BUILD_TYPE=Debug -G "CodeBlocks - Unix Makefiles" /home/tomer/Desktop/Boost_Echo_Client
+-- start running cmake...
+-- Boost version: 1.58.0
+-- Boost_INCLUDE_DIRS: /usr/include
+-- Boost_LIBRARIES: 
+-- Boost_VERSION: 105800
+-- Configuring done
+-- Generating done
+-- Build files have been written to: /home/tomer/Desktop/Boost_Echo_Client/cmake-build-debug

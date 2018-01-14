@@ -1,0 +1,34 @@
+#IncludeRegexLine: ^[ 	]*[#%][ 	]*(include|import)[ 	]*[<"]([^">]+)([">])
+
+#IncludeRegexScan: ^.*$
+
+#IncludeRegexComplain: ^$
+
+#IncludeRegexTransform: 
+
+/home/tomer/Desktop/Boost_Echo_Client/include/connectionHandler.h
+string
+-
+iostream
+-
+boost/asio.hpp
+-
+
+/home/tomer/Desktop/Boost_Echo_Client/src/Boost_Echo_Client.cpp
+stdlib.h
+-
+iostream
+-
+../include/connectionHandler.h
+/home/tomer/Desktop/Boost_Echo_Client/include/connectionHandler.h
+boost/thread.hpp
+-
+
+/home/tomer/Desktop/Boost_Echo_Client/src/connectionHandler.cpp
+iostream
+-
+boost/asio/ip/tcp.hpp
+-
+../include/connectionHandler.h
+/home/tomer/Desktop/Boost_Echo_Client/include/connectionHandler.h
+
